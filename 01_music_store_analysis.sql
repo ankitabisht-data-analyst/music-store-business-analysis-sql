@@ -1,15 +1,8 @@
--- ============================================================
+
 --  MUSIC STORE DATA ANALYSIS — OPTIMIZED MySQL QUERIES
 --  Schema: Chinook Music Store
---  Analyst: 50-year veteran approach — indexes first, then queries
--- ============================================================
 
-
--- ============================================================
--- SECTION 0 — RECOMMENDED INDEXES
--- Run these once after loading data. They dramatically speed up
--- all JOIN-heavy analytical queries below.
--- ============================================================
+-- SECTION  — RECOMMENDED INDEXES
 
 -- employee
 ALTER TABLE employee ADD INDEX idx_employee_title (title);
@@ -41,15 +34,13 @@ ALTER TABLE playlist_track ADD INDEX idx_pt_track    (track_id);
 ALTER TABLE playlist_track ADD INDEX idx_pt_playlist (playlist_id);
 
 
--- ============================================================
 -- SECTION 1 — EASY QUESTIONS
--- ============================================================
+
 
 -- ── Q1.1 ─────────────────────────────────────────────────────
--- Who is the senior most employee based on job title?
+-- Who is the senior-most employee based on job title?
 -- Strategy: ORDER BY the "levels" column DESC (L6 > L4 …) and
---           take the first row. No aggregation needed.
--- ─────────────────────────────────────────────────────────────
+
 SELECT
     employee_id,
     first_name,
@@ -63,11 +54,9 @@ LIMIT 1;
 
 -- ── Q1.2 ─────────────────────────────────────────────────────
 -- Which countries have the most Invoices?
--- Return all countries ranked by invoice count (ties included).
--- ─────────────────────────────────────────────────────────────
-SELECT
-    billing_country          AS country,
-    COUNT(*)                 AS invoice_count
+
+SELECT billing_country  AS country,
+    COUNT(*) AS invoice_count
 FROM invoice
 GROUP BY billing_country
 ORDER BY invoice_count DESC;
@@ -75,7 +64,7 @@ ORDER BY invoice_count DESC;
 
 -- ── Q1.3 ─────────────────────────────────────────────────────
 -- What are the top 3 values of total invoice?
--- ─────────────────────────────────────────────────────────────
+
 SELECT DISTINCT total
 FROM invoice
 ORDER BY total DESC
@@ -85,10 +74,10 @@ LIMIT 3;
 -- ── Q1.4 ─────────────────────────────────────────────────────
 -- Which city has the best customers (highest sum of totals)?
 -- Return city name + total revenue — use for Music Festival.
--- ─────────────────────────────────────────────────────────────
+
 SELECT
-    billing_city             AS city,
-    ROUND(SUM(total), 2)     AS invoice_sum
+    billing_city   AS city,
+    ROUND(SUM(total), 2) AS invoice_sum
 FROM invoice
 GROUP BY billing_city
 ORDER BY invoice_sum DESC
@@ -102,7 +91,7 @@ SELECT
     c.customer_id,
     c.first_name,
     c.last_name,
-    ROUND(SUM(i.total), 2)   AS total_spent
+    ROUND(SUM(i.total), 2) AS total_spent
 FROM customer  c
 JOIN invoice   i ON i.customer_id = c.customer_id
 GROUP BY c.customer_id, c.first_name, c.last_name
@@ -110,40 +99,38 @@ ORDER BY total_spent DESC
 LIMIT 1;
 
 
--- ============================================================
+
 -- SECTION 2 — MODERATE QUESTIONS
--- ============================================================
+
 
 -- ── Q2.1 ─────────────────────────────────────────────────────
 -- Email, first name, last name & Genre of all ROCK listeners.
 -- Ordered alphabetically by email.
--- Strategy: DISTINCT on (email, first_name, last_name) avoids
---   duplicates when a customer bought Rock multiple times.
--- ─────────────────────────────────────────────────────────────
+─
 SELECT DISTINCT
     c.email,
     c.first_name,
     c.last_name,
-    g.name                   AS genre
+    g.name   AS genre
 FROM customer    c
-JOIN invoice     i   ON i.customer_id  = c.customer_id
+JOIN invoice   i   ON i.customer_id  = c.customer_id
 JOIN invoice_line il ON il.invoice_id  = i.invoice_id
-JOIN track       t   ON t.track_id     = il.track_id
-JOIN genre       g   ON g.genre_id     = t.genre_id
+JOIN track  t   ON t.track_id   = il.track_id
+JOIN genre  g   ON g.genre_id  = t.genre_id
 WHERE g.name = 'Rock'
 ORDER BY c.email;
 
 
 -- ── Q2.2 ─────────────────────────────────────────────────────
 -- Top 10 rock artists by number of rock tracks written.
--- ─────────────────────────────────────────────────────────────
+
 SELECT
-    ar.name                  AS artist_name,
-    COUNT(t.track_id)        AS rock_track_count
+    ar. name  AS artist_name,
+    COUNT(t.track_id) AS rock_track_count
 FROM artist  ar
 JOIN album   al ON al.artist_id  = ar.artist_id
 JOIN track   t  ON t.album_id    = al.album_id
-JOIN genre   g  ON g.genre_id    = t.genre_id
+JOIN genre   g  ON g.genre_id   = t.genre_id
 WHERE g.name = 'Rock'
 GROUP BY ar.artist_id, ar.name
 ORDER BY rock_track_count DESC
@@ -153,9 +140,7 @@ LIMIT 10;
 -- ── Q2.3 ─────────────────────────────────────────────────────
 -- Track names longer than the average song length.
 -- Return Name + Milliseconds, longest first.
--- Strategy: subquery computes AVG once; optimizer typically
---           runs it as a constant.
--- ─────────────────────────────────────────────────────────────
+
 SELECT
     name,
     milliseconds
@@ -164,29 +149,24 @@ WHERE milliseconds > (SELECT AVG(milliseconds) FROM track)
 ORDER BY milliseconds DESC;
 
 
--- ============================================================
 -- SECTION 3 — ADVANCED QUESTIONS
--- ============================================================
+
 
 -- ── Q3.1 ─────────────────────────────────────────────────────
 -- Amount spent by each customer ON EACH ARTIST.
 -- Return: customer_name, artist_name, total_spent
--- Strategy: CTEs keep the logic readable without nested
---           subqueries. The final join is a straight
---           grouped aggregate.
--- ─────────────────────────────────────────────────────────────
+
 WITH best_selling_artist AS (
     -- pre-aggregate purchases per artist for the main join
     SELECT
         ar.artist_id,
-        ar.name                        AS artist_name,
+        ar. name  AS artist_name,
         SUM(il.unit_price * il.quantity) AS total_sales
-    FROM artist       ar
-    JOIN album        al ON al.artist_id  = ar.artist_id
-    JOIN track        t  ON t.album_id    = al.album_id
+    FROM artist  ar
+    JOIN album  al ON al.artist_id  = ar.artist_id
+    JOIN track   t  ON t.album_id    = al.album_id
     JOIN invoice_line il ON il.track_id   = t.track_id
-    GROUP BY ar.artist_id, ar.name
-)
+    GROUP BY ar.artist_id, ar.name)
 SELECT
     CONCAT(c.first_name, ' ', c.last_name)  AS customer_name,
     bsa.artist_name,
@@ -208,11 +188,7 @@ ORDER BY total_spent DESC;
 -- ── Q3.2 ─────────────────────────────────────────────────────
 -- Most popular genre per country (by purchase quantity).
 -- For ties, return ALL tied genres for that country.
--- Strategy: 
---   Step 1 — count purchases per (country, genre).
---   Step 2 — rank within each country using RANK() so ties are
---             preserved (RANK = 1 means top genre or tied top).
--- ─────────────────────────────────────────────────────────────
+
 WITH country_genre_purchases AS (
     SELECT
         i.billing_country              AS country,
@@ -222,19 +198,15 @@ WITH country_genre_purchases AS (
     JOIN invoice_line  il ON il.invoice_id = i.invoice_id
     JOIN track         t  ON t.track_id    = il.track_id
     JOIN genre         g  ON g.genre_id    = t.genre_id
-    GROUP BY i.billing_country, g.genre_id, g.name
-),
-ranked AS (
-    SELECT
+    GROUP BY i.billing_country, g.genre_id, g.name),
+ranked AS (SELECT
         country,
         genre,
         purchase_count,
         RANK() OVER (
             PARTITION BY country
-            ORDER BY purchase_count DESC
-        ) AS rnk
-    FROM country_genre_purchases
-)
+            ORDER BY purchase_count DESC ) AS rnk
+    FROM country_genre_purchases)
 SELECT
     country,
     genre,
@@ -247,23 +219,19 @@ ORDER BY country, genre;
 -- ── Q3.3 ─────────────────────────────────────────────────────
 -- Customer who spent the most per country.
 -- For ties, return ALL customers with that top amount.
--- Strategy: window function RANK() partitioned by country so
---           the optimizer avoids a self-join.
--- ─────────────────────────────────────────────────────────────
+
 WITH customer_country_spend AS (
     SELECT
-        i.billing_country                        AS country,
-        CONCAT(c.first_name, ' ', c.last_name)   AS customer_name,
-        c.customer_id,
-        ROUND(SUM(i.total), 2)                   AS total_spent
+        i.billing_country AS country,
+        CONCAT(c.first_name, ' ', c.last_name)   AS customer_name, c.customer_id,
+        ROUND(SUM(i.total), 2)   AS total_spent
     FROM customer  c
     JOIN invoice   i ON i.customer_id = c.customer_id
     GROUP BY
         i.billing_country,
         c.customer_id,
         c.first_name,
-        c.last_name
-),
+        c.last_name),
 ranked AS (
     SELECT
         country,
@@ -271,19 +239,12 @@ ranked AS (
         total_spent,
         RANK() OVER (
             PARTITION BY country
-            ORDER BY total_spent DESC
-        ) AS rnk
-    FROM customer_country_spend
-)
-SELECT
-    country,
+            ORDER BY total_spent DESC ) AS rnk
+    FROM customer_country_spend)
+SELECT country,
     customer_name,
     total_spent
 FROM ranked
 WHERE rnk = 1
 ORDER BY country, customer_name;
 
-
--- ============================================================
--- END OF FILE
--- ============================================================
