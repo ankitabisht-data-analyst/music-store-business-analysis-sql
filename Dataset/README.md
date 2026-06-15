@@ -2,6 +2,7 @@ Dataset Information
 
 (Overview)
 
+
 This dataset belongs to the Music Store SQL Analysis Project and is used to perform 
 business analytics, customer analysis, sales analysis, and advanced SQL querying.
 
