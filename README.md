@@ -6,7 +6,6 @@ This project analyzes the Chinook Music Store database using SQL to answer real 
 
 The objective was not only to write SQL queries, but to approach the database from a business analyst's perspective by transforming transactional data into actionable insights and optimizing query performance through indexing and efficient query design.
 
-
 ## 🎯 Project Goals
 
 * Analyze customer purchasing behavior
